@@ -94,7 +94,7 @@ export default function About() {
                 <>
                   <img
                     src={portraitSrc}
-                    alt={`${personalInfo.name} — ${personalInfo.role}`}
+                    alt={`${personalInfo.name} — ${personalInfo.role}, TAP Academy student`}
                     className="h-full w-full object-cover grayscale contrast-125"
                   />
                   {/* Orange tint layer with multiply blend */}
