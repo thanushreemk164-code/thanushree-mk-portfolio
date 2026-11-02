@@ -2,29 +2,75 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { experience } from '../data/portfolioData'
+import ScrambleText from './ScrambleText'
+
+gsap.registerPlugin(ScrollTrigger)
 
 export default function Journey() {
   const sectionRef = useRef(null)
+  const listRef = useRef(null)
+  const fillLineRef = useRef(null)
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (prefersReducedMotion) return
+    const list = listRef.current
+    const fillLine = fillLineRef.current
+    const section = sectionRef.current
 
-    gsap.registerPlugin(ScrollTrigger)
+    if (!list || !fillLine || !section) return
 
     const ctx = gsap.context(() => {
-      gsap.from('.journey-item', {
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: 'top 80%',
-          once: true,
-        },
-        x: -24,
-        opacity: 0,
-        duration: 0.8,
-        stagger: 0.16,
-        ease: 'power3.out',
-        clearProps: 'all',
+      const items = list.querySelectorAll('.journey-item')
+
+      if (prefersReducedMotion) {
+        fillLine.style.transform = 'scaleY(1)'
+        items.forEach((item) => item.classList.add('is-on'))
+        return
+      }
+
+      // Fill line animation with scrub
+      gsap.fromTo(
+        fillLine,
+        { scaleY: 0 },
+        {
+          scaleY: 1,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: list,
+            start: 'top 70%',
+            end: 'bottom 60%',
+            scrub: true,
+          },
+        }
+      )
+
+      // Each item: activate node at top 65% and fade-in once at top 85%
+      items.forEach((item) => {
+        // Toggle active node on/off based on scroll position
+        ScrollTrigger.create({
+          trigger: item,
+          start: 'top 65%',
+          onEnter: () => item.classList.add('is-on'),
+          onLeaveBack: () => item.classList.remove('is-on'),
+        })
+
+        // Fade in from x 30 once
+        gsap.fromTo(
+          item,
+          { opacity: 0, x: 30 },
+          {
+            opacity: 1,
+            x: 0,
+            duration: 0.8,
+            ease: 'power3.out',
+            scrollTrigger: {
+              trigger: item,
+              start: 'top 85%',
+              once: true,
+            },
+            clearProps: 'transform,opacity',
+          }
+        )
       })
     }, sectionRef)
 
@@ -35,55 +81,71 @@ export default function Journey() {
     <section
       id="journey"
       ref={sectionRef}
-      className="relative border-t border-bone/10 py-24 px-4 sm:px-6 lg:px-8 bg-ink"
+      className="px-5 md:px-10 py-28 md:py-40 bg-ink"
     >
-      <div className="mx-auto max-w-4xl">
-        {/* Section Header */}
-        <div className="mb-16">
-          <div className="font-mono text-xs uppercase tracking-widest text-signal mb-2">
-            // 03 / Journey
-          </div>
-          <h2 className="font-sans text-3xl sm:text-5xl font-bold tracking-tight text-bone">
-            Experience & Education Timeline
+      <div className="grid max-w-[1440px] mx-auto lg:grid-cols-[0.8fr_1.2fr] gap-12 lg:gap-20 items-start">
+        {/* LEFT Column: Sticky Header on Large Screens */}
+        <div className="lg:sticky lg:top-28 lg:self-start space-y-4">
+          <ScrambleText
+            text="03 / Journey"
+            className="block font-mono text-xs uppercase tracking-[0.3em] text-signal"
+            trigger="view"
+          />
+          <h2 className="text-[clamp(2.4rem,5vw,4.5rem)] font-bold leading-[1.02] tracking-[-0.03em] font-sans text-bone">
+            Where I&apos;ve been learning and building.
           </h2>
         </div>
 
-        {/* Timeline Stack */}
-        <div className="relative border-l border-bone/15 ml-4 sm:ml-6 pl-6 sm:pl-10 space-y-12">
-          {experience.map((item, idx) => (
-            <div key={idx} className="journey-item relative group">
-              {/* Timeline Node Point */}
-              <div className="absolute -left-[31px] sm:-left-[47px] top-1.5 h-3.5 w-3.5 rounded-full border-2 border-ink bg-signal shadow-[0_0_8px_#ff5b1f]" />
+        {/* RIGHT Column: Timeline List */}
+        <div className="relative">
+          <ol ref={listRef} className="relative pl-10 space-y-16 list-none">
+            {/* Vertical Base Line */}
+            <div
+              className="absolute left-0 top-2 bottom-2 w-px bg-bone/15 pointer-events-none"
+              aria-hidden="true"
+            />
 
-              {/* Card Container */}
-              <div className="hud-frame border border-bone/10 bg-panel/70 p-6 sm:p-8 hover:border-bone/25 transition-colors">
-                {/* Meta details */}
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <span className="font-mono text-xs text-signal uppercase tracking-wider font-semibold">
-                    {item.period}
-                  </span>
-                  <span className="font-mono text-[11px] text-bone/40 uppercase">
-                    SYS_LOG // 0{idx + 1}
-                  </span>
-                </div>
+            {/* Signal Orange Fill Line */}
+            <div
+              ref={fillLineRef}
+              className="absolute left-0 top-2 bottom-2 w-px bg-signal origin-top scale-y-0 pointer-events-none"
+              aria-hidden="true"
+            />
 
-                {/* Role / Degree */}
-                <h3 className="font-sans text-xl sm:text-2xl font-bold text-bone mb-1">
-                  {item.role}
+            {/* Timeline Entries */}
+            {experience.map((entry, idx) => (
+              <li
+                key={idx}
+                className="journey-item group relative space-y-3 [&.is-on_.node]:bg-signal [&.is-on_.node]:scale-100"
+              >
+                {/* 15px Square Node on the Line */}
+                <div
+                  className="node absolute -left-[7.5px] top-1.5 h-[15px] w-[15px] border border-signal bg-ink scale-75 transition-all duration-300"
+                  aria-hidden="true"
+                />
+
+                {/* Period */}
+                <span className="font-mono text-xs uppercase tracking-[0.25em] text-dim block">
+                  {entry.period}
+                </span>
+
+                {/* Role */}
+                <h3 className="text-2xl md:text-3xl font-bold font-sans text-bone block">
+                  {entry.role}
                 </h3>
 
-                {/* Organization */}
-                <div className="font-mono text-xs uppercase tracking-wider text-bone/70 mb-4">
-                  @ {item.org}
+                {/* Organisation */}
+                <div className="font-mono text-sm text-signal block">
+                  @ {entry.org}
                 </div>
 
                 {/* Description */}
-                <p className="font-sans text-sm sm:text-base text-dim leading-relaxed">
-                  {item.description}
+                <p className="text-base text-bone/70 leading-relaxed font-sans block max-w-xl">
+                  {entry.description}
                 </p>
-              </div>
-            </div>
-          ))}
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </section>
