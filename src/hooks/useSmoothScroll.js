@@ -43,7 +43,11 @@ export function useSmoothScroll() {
       ScrollTrigger.refresh()
     }
 
-    window.addEventListener('load', handleLoad)
+    if (document.readyState === 'complete') {
+      ScrollTrigger.refresh()
+    } else {
+      window.addEventListener('load', handleLoad)
+    }
 
     const refreshTimeout = setTimeout(() => {
       ScrollTrigger.refresh()

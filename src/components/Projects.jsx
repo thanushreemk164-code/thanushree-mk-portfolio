@@ -120,7 +120,7 @@ export default function Projects() {
 
       if (!track || !section) return
 
-      const getDistance = () => track.scrollWidth - window.innerWidth + 80
+      const getDistance = () => Math.max(0, track.scrollWidth - window.innerWidth + 80)
 
       gsap.to(track, {
         x: () => -getDistance(),
