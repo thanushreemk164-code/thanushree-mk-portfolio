@@ -2,171 +2,190 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { projects } from '../data/portfolioData'
+import ScrambleText from './ScrambleText'
 
-// Dynamic asset loader for project screenshots with fallback
+gsap.registerPlugin(ScrollTrigger)
+
+// Dynamically load project covers with import.meta.glob
 const projectImageModules = import.meta.glob(
   '../assets/projects/*.{png,jpg,jpeg,webp,svg}',
   { eager: true, import: 'default' }
 )
 
-const getProjectImage = (id) => {
-  const matchingKey = Object.keys(projectImageModules).find((key) =>
-    key.toLowerCase().includes(id.toLowerCase())
+function getProjectCover(id) {
+  const match = Object.keys(projectImageModules).find((key) => {
+    const filename = key.split('/').pop()?.toLowerCase() || ''
+    return filename.startsWith(id.toLowerCase() + '.')
+  })
+  return match ? projectImageModules[match] : null
+}
+
+function ProjectCard({ project }) {
+  const coverSrc = getProjectCover(project.id)
+
+  return (
+    <article
+      data-cursor="hot"
+      className="group relative w-full md:w-[min(560px,42vw)] shrink-0 border border-bone/10 bg-panel/60 flex flex-col justify-between overflow-hidden transition-colors hover:border-bone/30"
+    >
+      {/* Top Cover Area */}
+      <div className="relative aspect-[16/10] md:aspect-[16/8] w-full border-b border-bone/10 bg-ink overflow-hidden flex items-center justify-center">
+        {coverSrc ? (
+          <img
+            src={coverSrc}
+            alt={project.title}
+            className="h-full w-full object-cover grayscale opacity-80 transition-all duration-700 ease-out group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-[1.04]"
+          />
+        ) : (
+          <div className="hud-grid h-full w-full flex flex-col items-center justify-center p-6 text-center select-none">
+            <span className="font-mono text-xs uppercase tracking-[0.25em] text-dim">
+              [SYSTEM // {project.id}]
+            </span>
+          </div>
+        )}
+
+        {/* Top-Left Badge: <number> / <year> */}
+        <div className="absolute top-3 left-3 z-10 bg-ink/80 px-2.5 py-1 border border-bone/10 font-mono text-[10px] uppercase tracking-[0.25em] text-signal select-none">
+          {project.number} / {project.year}
+        </div>
+      </div>
+
+      {/* Body Area */}
+      <div className="p-6 md:p-8 flex flex-col justify-between flex-1 space-y-4">
+        <div className="space-y-3">
+          <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-bone font-sans transition-colors group-hover:text-signal">
+            {project.title}
+          </h3>
+
+          <p className="text-sm md:text-base text-bone/70 leading-relaxed font-sans">
+            {project.description}
+          </p>
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2 pt-2">
+            {project.tags.map((tag, idx) => (
+              <span
+                key={idx}
+                className="font-mono text-[11px] uppercase tracking-[0.15em] text-dim"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Actions Bottom Bar */}
+        <div className="flex items-center gap-3 pt-4 border-t border-bone/10">
+          {project.liveUrl && project.liveUrl !== project.githubUrl && (
+            <a
+              href={project.liveUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-signal text-ink hover:bg-bone font-mono text-[11px] font-semibold uppercase tracking-[0.2em] px-4 py-2.5 transition-colors inline-flex items-center gap-1.5"
+            >
+              <span>Live</span>
+              <span>↗</span>
+            </a>
+          )}
+
+          {project.githubUrl && (
+            <a
+              href={project.githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-bone/30 text-bone hover:border-signal hover:text-signal font-mono text-[11px] font-semibold uppercase tracking-[0.2em] px-4 py-2.5 transition-colors inline-flex items-center gap-1.5"
+            >
+              <span>Code</span>
+              <span>↗</span>
+            </a>
+          )}
+        </div>
+      </div>
+    </article>
   )
-  return matchingKey ? projectImageModules[matchingKey] : null
 }
 
 export default function Projects() {
   const sectionRef = useRef(null)
+  const trackRef = useRef(null)
+  const progressRef = useRef(null)
 
   useEffect(() => {
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (prefersReducedMotion) return
+    const mm = gsap.matchMedia()
 
-    gsap.registerPlugin(ScrollTrigger)
+    mm.add('(min-width: 768px) and (prefers-reduced-motion: no-preference)', () => {
+      const track = trackRef.current
+      const section = sectionRef.current
+      const progressBar = progressRef.current
 
-    const ctx = gsap.context(() => {
-      gsap.from('.project-card', {
+      if (!track || !section) return
+
+      const getDistance = () => track.scrollWidth - window.innerWidth + 80
+
+      gsap.to(track, {
+        x: () => -getDistance(),
+        ease: 'none',
         scrollTrigger: {
-          trigger: sectionRef.current,
-          start: 'top 80%',
-          once: true,
+          trigger: section,
+          start: 'top top',
+          end: () => '+=' + getDistance(),
+          scrub: 1,
+          pin: true,
+          invalidateOnRefresh: true,
+          onUpdate: (self) => {
+            if (progressBar) {
+              progressBar.style.transform = `scaleX(${self.progress})`
+            }
+          },
         },
-        y: 35,
-        opacity: 0,
-        duration: 0.8,
-        stagger: 0.16,
-        ease: 'power3.out',
-        clearProps: 'all',
       })
-    }, sectionRef)
+    })
 
-    return () => ctx.revert()
+    return () => mm.revert()
   }, [])
 
   return (
     <section
       id="projects"
       ref={sectionRef}
-      className="relative border-t border-bone/10 py-24 px-4 sm:px-6 lg:px-8 bg-ink"
+      className="w-full overflow-hidden py-24 md:h-screen md:flex md:flex-col md:justify-center md:pt-20 md:pb-6 bg-ink"
     >
-      <div className="mx-auto max-w-6xl">
-        {/* Section Header */}
-        <div className="mb-16">
-          <div className="font-mono text-xs uppercase tracking-widest text-signal mb-2">
-            // 02 / Work
-          </div>
-          <h2 className="font-sans text-3xl sm:text-5xl font-bold tracking-tight text-bone">
-            Featured Projects & Implementations
+      {/* Header Row */}
+      <div className="max-w-[1440px] w-full mx-auto px-5 md:px-10 mb-8 md:mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <ScrambleText
+            text="02 / Selected work"
+            className="block font-mono text-xs uppercase tracking-[0.3em] text-signal mb-2"
+          />
+          <h2 className="text-[clamp(2.4rem,6vw,5.5rem)] font-bold leading-none tracking-[-0.03em] font-sans text-bone">
+            Projects
           </h2>
         </div>
 
-        {/* Project Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {projects.map((proj) => {
-            const imageSrc = getProjectImage(proj.id)
+        <div className="hidden md:block font-mono text-xs text-dim uppercase tracking-[0.2em]">
+          {projects.length} projects · scroll →
+        </div>
+      </div>
 
-            return (
-              <article
-                key={proj.id}
-                className="project-card hud-frame border border-bone/10 bg-panel/70 flex flex-col justify-between overflow-hidden group hover:border-bone/30 transition-colors duration-300"
-              >
-                {/* Visual Area / Screenshot or Schematic */}
-                <div className="relative aspect-16/10 w-full overflow-hidden bg-ink/90 border-b border-bone/10">
-                  {imageSrc ? (
-                    <img
-                      src={imageSrc}
-                      alt={proj.title}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  ) : (
-                    <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center hud-grid">
-                      <div className="font-mono text-2xl font-bold text-bone/20 mb-2">
-                        {proj.number}
-                      </div>
-                      <div className="font-mono text-xs uppercase tracking-widest text-signal">
-                        [DATA_SYSTEM // SCHEMATIC]
-                      </div>
-                      <div className="mt-2 font-mono text-[11px] text-bone/40 max-w-xs">
-                        {proj.tags.join(' • ')}
-                      </div>
-                    </div>
-                  )}
+      {/* Horizontal Track (Mobile: stacked vertical; Desktop: single horizontal row) */}
+      <div className="w-full overflow-hidden">
+        <div
+          ref={trackRef}
+          className="flex flex-col gap-6 md:flex-row md:w-max md:gap-8 px-5 md:px-10"
+        >
+          {projects.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
+        </div>
+      </div>
 
-                  {/* Corner tags */}
-                  <div className="absolute top-3 left-3 font-mono text-[10px] uppercase bg-ink/80 px-2 py-0.5 border border-bone/10 text-bone">
-                    SYS_NUM // {proj.number}
-                  </div>
-                  <div className="absolute top-3 right-3 font-mono text-[10px] uppercase bg-ink/80 px-2 py-0.5 border border-bone/10 text-signal">
-                    {proj.year}
-                  </div>
-                </div>
-
-                {/* Card Content */}
-                <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-sans text-xl sm:text-2xl font-bold text-bone mb-3 group-hover:text-signal transition-colors">
-                      {proj.title}
-                    </h3>
-                    <p className="font-sans text-sm sm:text-base text-dim leading-relaxed mb-6">
-                      {proj.description}
-                    </p>
-                  </div>
-
-                  <div>
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {proj.tags.map((tag, tagIdx) => (
-                        <span
-                          key={tagIdx}
-                          className="font-mono text-[11px] border border-bone/10 bg-ink px-2.5 py-1 text-bone/70 uppercase tracking-wider"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Actions Links */}
-                    <div className="flex items-center gap-4 pt-4 border-t border-bone/10 font-mono text-xs uppercase tracking-wider">
-                      {proj.githubUrl && (
-                        <a
-                          href={proj.githubUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-bone hover:text-signal transition-colors"
-                        >
-                          <span>Source Code</span>
-                          <span>↗</span>
-                        </a>
-                      )}
-                      {proj.liveUrl && proj.liveUrl !== proj.githubUrl && (
-                        <a
-                          href={proj.liveUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-dim hover:text-bone transition-colors"
-                        >
-                          <span>Live System</span>
-                          <span>↗</span>
-                        </a>
-                      )}
-                      {proj.video && (
-                        <a
-                          href={proj.video}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-signal hover:underline"
-                        >
-                          <span>Video Demo</span>
-                          <span>▶</span>
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            )
-          })}
+      {/* Desktop Progress Line */}
+      <div className="hidden md:block max-w-[1440px] w-full mx-auto px-5 md:px-10 mt-8">
+        <div className="h-[2px] w-full bg-bone/10 overflow-hidden">
+          <div
+            ref={progressRef}
+            className="h-full bg-signal origin-left scale-x-0 transition-transform duration-75"
+          />
         </div>
       </div>
     </section>
